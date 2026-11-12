@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flower Language Bookmark · 花语诗签</title>
+<meta name="description" content="A bookmark with no battery. It only wakes up when someone comes close.">
+<meta name="theme-color" content="#0b1310">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230b1310'/%3E%3Cg fill='%23e3c06a'%3E%3Cellipse cx='16' cy='8' rx='3.2' ry='5.2'/%3E%3Cellipse cx='16' cy='24' rx='3.2' ry='5.2'/%3E%3Cellipse cx='8' cy='16' rx='5.2' ry='3.2'/%3E%3Cellipse cx='24' cy='16' rx='5.2' ry='3.2'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='3.6' fill='%23fff3d6'/%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   花语诗签 · Flower Language Bookmark
+   单文件网页：无任何外部依赖，断网也能打开（语音文件除外）
+   ============================================================ */
+
+:root{
+  --night:#0b1310;
+  --night-2:#101d17;
+  --gold:#e3c06a;
+  --gold-dim:#a98a3c;
+  --gold-soft:rgba(227,192,106,.35);
+  --paper:#f6efe1;
+  --paper-2:#efe5d2;
+  --ink:#2b2721;
+  --ink-soft:#5b5348;
+  --serif:"Songti SC","Noto Serif SC",Georgia,"Times New Roman",STSong,SimSun,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+html,body{margin:0;padding:0}
+body{
+  background:var(--night);
+  color:#efe9dc;
+  font-family:var(--sans);
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- 滚动容器 ---------- */
+#app{
+  height:100vh;
+  height:100dvh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scroll-snap-type:y proximity;
+  scrollbar-width:none;
+}
+#app::-webkit-scrollbar{display:none}
+
+.scene{
+  position:relative;
+  min-height:100vh;
+  min-height:100dvh;
+  scroll-snap-align:start;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:calc(env(safe-area-inset-top) + 28px) 22px calc(env(safe-area-inset-bottom) + 34px);
+  overflow:hidden;
+}
+.scene.dark{background:radial-gradient(120% 85% at 50% 8%,#16261e 0%,var(--night) 62%,#070d0a 100%)}
+.scene.paper{background:var(--paper);color:var(--ink)}
+
+/* ---------- 语言切换 ---------- */
+html[data-lang="en"] .zh{display:none}
+html[data-lang="zh"] .en{display:none}
+
+/* ---------- 底部控制条 ---------- */
+.dock{
+  position:fixed;
+  right:calc(env(safe-area-inset-right) + 12px);
+  bottom:calc(env(safe-area-inset-bottom) + 12px);
+  display:flex;gap:8px;z-index:60;
+}
+.dock button{
+  font-family:var(--sans);font-size:12px;letter-spacing:.06em;
+  padding:7px 11px;border-radius:999px;cursor:pointer;
+  /* 深色半透明底：在深色场景和米色信纸上都读得清 */
+  background:rgba(11,19,16,.62);
+  color:#e8dfc9;
+  border:1px solid rgba(227,192,106,.38);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:0 4px 14px -6px rgba(0,0,0,.6);
+  transition:background .25s,border-color .25s;
+}
+.dock button:active{background:rgba(227,192,106,.3)}
+.dock button[aria-pressed="true"]{border-color:rgba(227,192,106,.9);color:var(--gold)}
+
+/* ---------- 漂浮微尘 ---------- */
+.motes{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.mote{
+  position:absolute;top:-6%;
+  width:3px;height:3px;border-radius:50%;
+  background:var(--gold);
+  opacity:.0;
+  animation:drift linear infinite;
+  box-shadow:0 0 6px 1px rgba(227,192,106,.5);
+}
+@keyframes drift{
+  0%{transform:translate3d(0,-8vh,0) scale(.6);opacity:0}
+  12%{opacity:.55}
+  75%{opacity:.35}
+  100%{transform:translate3d(var(--dx,14px),108vh,0) scale(1);opacity:0}
+}
+
+/* ============================================================
+   SCENE 1 · 开花
+   ============================================================ */
+#s1{justify-content:center;gap:2px}
+
+.flower-stage{
+  position:relative;z-index:2;
+  width:min(74vw,300px);
+  margin-bottom:-6px;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+#hero{width:100%;height:auto;display:block;overflow:visible}
+#hero .petal{filter:drop-shadow(0 0 7px rgba(227,192,106,.28))}
+#hero #stemGroup path{fill:none;stroke:url(#stemGrad);stroke-linecap:round}
+#hero #coreGroup{filter:drop-shadow(0 0 12px rgba(227,192,106,.5))}
+
+.tap-cue{
+  position:relative;z-index:3;
+  margin-top:2px;
+  font-size:13px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--gold);opacity:0;transition:opacity .9s ease .2s;
+  text-align:center;
+}
+.tap-cue.show{opacity:.9}
+.tap-cue .pulse{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--gold);margin-right:8px;vertical-align:middle;
+  animation:pulse 1.9s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{transform:scale(.7);opacity:.5}50%{transform:scale(1.3);opacity:1}}
+
+h1.hero-title{
+  position:relative;z-index:2;
+  font-family:var(--serif);
+  font-weight:400;
+  font-size:clamp(21px,6.2vw,29px);
+  letter-spacing:.05em;
+  margin:20px 0 6px;
+  text-align:center;
+  color:#f4ecdb;
+  opacity:0;transform:translateY(12px);
+  transition:opacity 1.1s ease,transform 1.1s cubic-bezier(.2,.8,.3,1);
+}
+h1.hero-title.show{opacity:1;transform:none}
+h1.hero-title .name{color:var(--gold)}
+
+.hero-sub{
+  position:relative;z-index:2;
+  font-family:var(--serif);
+  font-size:14px;line-height:1.8;
+  color:#9fb0a4;text-align:center;max-width:19em;
+  opacity:0;transform:translateY(10px);
+  transition:opacity 1.1s ease .35s,transform 1.1s cubic-bezier(.2,.8,.3,1) .35s;
+}
+.hero-sub.show{opacity:1;transform:none}
+
+.scroll-cue{
+  position:absolute;bottom:calc(env(safe-area-inset-bottom) + 18px);
+  left:50%;transform:translateX(-50%);
+  z-index:3;color:var(--gold-dim);font-size:18px;
+  opacity:0;animation:cue 2.4s ease-in-out 1.6s infinite;
+}
+@keyframes cue{0%,100%{opacity:0;transform:translate(-50%,0)}50%{opacity:.75;transform:translate(-50%,6px)}}
+
+/* ============================================================
+   SCENE 2 · 花语
+   ============================================================ */
+.sec-title{
+  position:relative;z-index:2;
+  font-family:var(--serif);font-weight:400;
+  font-size:clamp(18px,5vw,23px);letter-spacing:.1em;
+  color:var(--gold);margin:0 0 4px;text-align:center;
+}
+.sec-sub{
+  position:relative;z-index:2;
+  font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:#7d8d82;margin:0 0 26px;text-align:center;
+}
+
+.cards{
+  position:relative;z-index:2;
+  display:grid;gap:14px;width:100%;max-width:380px;
+}
+.card{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 16px;border-radius:16px;
+  background:linear-gradient(135deg,rgba(255,255,255,.055),rgba(255,255,255,.015));
+  border:1px solid rgba(227,192,106,.18);
+  cursor:pointer;
+  opacity:0;transform:translateY(22px);
+  transition:opacity .8s ease,transform .8s cubic-bezier(.2,.8,.3,1),border-color .4s,background .4s;
+}
+.card.in{opacity:1;transform:none}
+.card:active{border-color:rgba(227,192,106,.6);background:linear-gradient(135deg,rgba(227,192,106,.12),rgba(255,255,255,.02))}
+.card svg{width:62px;height:62px;flex:0 0 62px;overflow:visible}
+.card-body{min-width:0}
+.card-name{font-family:var(--serif);font-size:17px;color:#f2e9d6;margin:0 0 2px;letter-spacing:.03em}
+.card-word{
+  font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--gold);margin:0 0 5px;
+}
+.card-line{font-size:12.5px;line-height:1.65;color:#93a498;margin:0}
+
+/* ============================================================
+   SCENE 3 · 信
+   ============================================================ */
+#s3{align-items:center;justify-content:flex-start;padding-top:calc(env(safe-area-inset-top) + 46px);padding-bottom:calc(env(safe-area-inset-bottom) + 60px)}
+
+.paper-sheet{
+  position:relative;z-index:2;
+  width:100%;max-width:430px;
+  padding:34px 26px 30px;
+  border-radius:4px;
+  background:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.012) 0 1px,transparent 1px 28px),
+    linear-gradient(160deg,var(--paper) 0%,var(--paper-2) 100%);
+  box-shadow:0 20px 50px -18px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.6) inset;
+}
+.paper-sheet::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--gold),rgba(227,192,106,.15));
+  border-radius:4px 0 0 4px;
+}
+.paper-sheet .salutation{
+  font-family:var(--serif);font-size:17px;color:var(--ink);
+  margin:0 0 18px;letter-spacing:.02em;
+}
+.paper-sheet p{
+  font-family:var(--serif);
+  font-size:15px;line-height:2;color:var(--ink-soft);
+  margin:0 0 15px;text-align:justify;
+  opacity:0;transform:translateY(14px);
+  transition:opacity 1s ease,transform 1s cubic-bezier(.2,.8,.3,1);
+}
+.paper-sheet p.in{opacity:1;transform:none}
+.paper-sheet p.closing{
+  color:var(--ink);font-size:16px;margin-bottom:6px;
+}
+.paper-sheet p.sign{
+  font-family:var(--serif);font-style:italic;
+  text-align:right;color:var(--ink);font-size:16px;margin:10px 0 0;
+}
+.paper-sheet em{font-style:italic;color:var(--ink)}
+
+/* ============================================================
+   SCENE 4 · 语音
+   ============================================================ */
+#s4{gap:0}
+.voice-wrap{position:relative;z-index:2;text-align:center;max-width:360px;width:100%}
+
+.voice-btn{
+  display:inline-flex;align-items:center;gap:11px;
+  padding:15px 26px;border-radius:999px;cursor:pointer;
+  font-family:var(--serif);font-size:15.5px;letter-spacing:.04em;
+  color:#12100a;background:linear-gradient(135deg,#f0d288,var(--gold) 45%,#c9a24a);
+  border:none;
+  box-shadow:0 0 0 1px rgba(255,255,255,.25) inset,0 12px 34px -12px rgba(227,192,106,.75);
+  transition:transform .2s cubic-bezier(.2,.8,.3,1),box-shadow .3s;
+}
+.voice-btn:active{transform:scale(.96)}
+.voice-btn.playing{box-shadow:0 0 0 1px rgba(255,255,255,.3) inset,0 0 0 8px rgba(227,192,106,.12),0 12px 34px -12px rgba(227,192,106,.9)}
+.voice-btn svg{width:19px;height:19px}
+
+.voice-note{
+  margin-top:16px;font-size:12px;line-height:1.8;color:#7d8d82;
+  min-height:2.4em;
+}
+.voice-note .kbd{color:var(--gold-dim)}
+
+.eq{display:inline-flex;align-items:flex-end;gap:2.5px;height:14px;margin-right:9px;vertical-align:-2px}
+.eq i{display:block;width:2.5px;height:4px;background:currentColor;border-radius:2px;opacity:.35}
+.eq.on i{animation:eq .85s ease-in-out infinite;opacity:1}
+.eq.on i:nth-child(2){animation-delay:.13s}
+.eq.on i:nth-child(3){animation-delay:.26s}
+.eq.on i:nth-child(4){animation-delay:.39s}
+@keyframes eq{0%,100%{height:3px}50%{height:14px}}
+
+.replay-link{
+  margin-top:30px;font-size:12.5px;letter-spacing:.12em;
+  color:var(--gold-dim);background:none;border:none;cursor:pointer;
+  font-family:var(--sans);text-transform:uppercase;
+  border-bottom:1px solid rgba(227,192,106,.28);padding-bottom:3px;
+}
+
+.footer{
+  margin-top:40px;font-size:11px;line-height:2;letter-spacing:.08em;
+  color:#5d6b62;text-align:center;
+}
+.footer .tag{
+  display:inline-block;margin-top:10px;padding:5px 13px;border-radius:999px;
+  border:1px solid rgba(227,192,106,.22);color:var(--gold-dim);
+  font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+}
+
+/* ---------- 小屏微调 ---------- */
+@media (max-height:680px){
+  .flower-stage{width:min(58vw,220px)}
+  h1.hero-title{margin-top:12px}
+  .paper-sheet p{font-size:14.5px;line-height:1.9}
+}
+
+/* ---------- 尊重系统"减弱动态效果" ---------- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+  .motes{display:none}
+  .card,.paper-sheet p,h1.hero-title,.hero-sub{opacity:1 !important;transform:none !important}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ==================== 1 · 开花 ==================== -->
+  <section class="scene dark" id="s1">
+    <div class="motes" id="motes1" aria-hidden="true"></div>
+
+    <div class="flower-stage" id="tapTarget" role="button" tabindex="0" aria-label="Tap to bloom">
+      <svg id="hero" viewBox="-95 -100 190 250" aria-hidden="true"></svg>
+    </div>
+
+    <p class="tap-cue" id="tapCue">
+      <span class="pulse"></span>
+      <span class="en">Tap the flower</span><span class="zh">轻触花朵</span>
+    </p>
+
+    <h1 class="hero-title" id="heroTitle"></h1>
+    <p class="hero-sub" id="heroSub"></p>
+
+    <div class="scroll-cue" aria-hidden="true">⌄</div>
+  </section>
+
+  <!-- ==================== 2 · 花语 ==================== -->
+  <section class="scene dark" id="s2">
+    <div class="motes" id="motes2" aria-hidden="true"></div>
+
+    <h2 class="sec-title">
+      <span class="en">The Language of Flowers</span><span class="zh">花 语</span>
+    </h2>
+    <p class="sec-sub">
+      <span class="en">three flowers · three things you gave me</span>
+      <span class="zh">三朵花 · 您给我的三样东西</span>
+    </p>
+
+    <div class="cards">
+      <div class="card" data-flower="sunflower" tabindex="0">
+        <svg viewBox="-40 -40 80 80" aria-hidden="true"></svg>
+        <div class="card-body">
+          <p class="card-word">Adoration</p>
+          <p class="card-name"><span class="en">Sunflower</span><span class="zh">向日葵</span></p>
+          <p class="card-line">
+            <span class="en">You are the one I turn toward.</span>
+            <span class="zh">您是我一直朝向的那束光。</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="card" data-flower="iris" tabindex="0">
+        <svg viewBox="-40 -40 80 80" aria-hidden="true"></svg>
+        <div class="card-body">
+          <p class="card-word">Wisdom</p>
+          <p class="card-name"><span class="en">Iris</span><span class="zh">鸢尾</span></p>
+          <p class="card-line">
+            <span class="en">You taught me how to see.</span>
+            <span class="zh">您教会了我怎么去看。</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="card" data-flower="lily" tabindex="0">
+        <svg viewBox="-40 -40 80 80" aria-hidden="true"></svg>
+        <div class="card-body">
+          <p class="card-word">Purity</p>
+          <p class="card-name"><span class="en">Lily</span><span class="zh">百合</span></p>
+          <p class="card-line">
+            <span class="en">You kept it honest.</span>
+            <span class="zh">您让我写得诚实。</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 3 · 信 ==================== -->
+  <section class="scene paper" id="s3">
+    <article class="paper-sheet" id="letter"></article>
+  </section>
+
+  <!-- ==================== 4 · 语音 ==================== -->
+  <section class="scene dark" id="s4">
+    <div class="motes" id="motes3" aria-hidden="true"></div>
+
+    <div class="voice-wrap">
+      <button class="voice-btn" id="voiceBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+        </svg>
+        <span class="eq" id="eq"><i></i><i></i><i></i><i></i></span>
+        <span class="en">Hear it in my voice</span><span class="zh">听听我的声音</span>
+      </button>
+
+      <p class="voice-note" id="voiceNote"></p>
+
+      <button class="replay-link" id="replayBtn">
+        <span class="en">Bloom again</span><span class="zh">再看一次开花</span>
+      </button>
+
+      <p class="footer">
+        <span class="en">A bookmark with no battery.<br>It only wakes up when someone comes close.</span>
+        <span class="zh">一枚没有电池的书签。<br>只有当有人靠近时，它才会醒来。</span>
+        <br>
+        <span class="tag">NFC · 无源 · touched to bloom</span>
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<div class="dock">
+  <button id="langBtn" aria-pressed="false">中 / EN</button>
+  <button id="musicBtn" aria-pressed="false">♪</button>
+</div>
+
+<script>
+/* ================================================================
+   ★★★ 只改这一段就够了 ★★★
+   把下面引号里的内容换成你自己的，其余代码不用动。
+   ================================================================ */
+const CONFIG = {
+  // 老师的称呼（会被写进标题和信里）
+  teacher: "Xinxin",
+
+  // 你的署名
+  student: "Your Name",
+
+  // 标题（第一屏）
+  title: {
+    en: "For Xinxin",
+    zh: "致 欣欣老师"
+  },
+
+  // 副标题（第一屏）
+  subtitle: {
+    en: "A bookmark made of copper, gold, and a little patience.",
+    zh: "一枚用铜、金和一点耐心做成的书签。"
+  },
+
+  // 感谢信正文：一段一个字符串
+  letter: {
+    en: [
+      "I made this bookmark out of copper, gold, and a little patience — the same way you taught me to write: one line at a time, until it means something.",
+      "Before your class, English was just a subject. You turned it into a room I could walk into. You showed me that a word is never only a word — that <em>bloom</em> is a promise, that <em>home</em> can be a person, and that the right sentence at the right moment can hold someone up.",
+      "Thank you for every red mark that made me better, for every question I couldn't answer yet, and for never once making me feel small for trying.",
+      "Sunflowers mean adoration. Irises mean wisdom. Lilies mean purity. I chose all three for you, because you gave me a little of each: something to look up to, something to think with, and something honest to write with.",
+      "This little board has no battery. It only wakes up when someone comes close. I think teaching is a bit like that, too.",
+      "Thank you for helping me bloom."
+    ],
+    zh: [
+      "这枚书签是用铜、金和一点耐心做的——就像您教我写作文那样：一行一行地来，直到它有了意义。",
+      "在遇见您之前，英语只是一门课。是您把它变成了一间我可以走进去的房间。您让我明白，一个词从来都不只是一个词——<em>bloom</em> 是一句承诺，<em>home</em> 可以是一个人，而恰好在那一刻出现的那句话，能把一个人接住。",
+      "谢谢您每一处让我变得更好的红笔批注，谢谢您每一个我暂时答不上来的问题，也谢谢您从来没有让我因为“不会”而觉得自己渺小。",
+      "向日葵的花语是爱慕，鸢尾是智慧，百合是纯洁。这三种我都送给您，因为您各给了我一点：让我仰望的东西、让我思考的东西，和让我诚实写作的东西。",
+      "这块小板子没有电池，只有当有人靠近时它才会醒来。我想，教书大概也是这样。",
+      "谢谢您，让我开花。"
+    ]
+  },
+
+  // 开场称呼
+  salutation: {
+    en: "Dear Xinxin,",
+    zh: "亲爱的欣欣老师："
+  },
+
+  // 落款
+  signoff: {
+    en: "With gratitude,",
+    zh: "心怀感激，"
+  },
+
+  /* ---- 语音 ----
+     录制你自己的声音，存成 assets/voice.mp3（或 .m4a），
+     放在和 index.html 同一个文件夹里，这里写相对路径。
+     如果没有这个文件，网页会自动改用系统合成的英文语音念 fallbackText。 */
+  voice: {
+    src: "assets/voice.mp3",
+    fallbackText: "Xinxin, thank you for helping me bloom."
+  },
+
+  // 打开页面时是否自动播放背景音乐（很轻的合成铃声，无版权问题）
+  musicOnLoad: false
+};
+/* ================== 配置结束，以下不用改 ================== */
+
+
+/* ================================================================
+   0. 基础工具
+   ================================================================ */
+const NS = "http://www.w3.org/2000/svg";
+const $  = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
+const easeOutBack = x => {
+  const c1 = 1.34, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+};
+function mk(tag, attrs) {
+  const el = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+
+/* ================================================================
+   1. 花朵生成器
+   —— 花瓣从原点(0,0)向外画，所以 rotate + scale 都绕花朵中心，
+      这样"开花"就是一次简单的缩放插值。
+   ================================================================ */
+let FLOWER_UID = 0;
+
+const PRESETS = {
+  /* 主花：奶白 + 金 */
+  hero: {
+    petal: ["#fffaf0", "#eed49a"],
+    stroke: "#dcb96a",
+    core: ["#f6dc9a", "#b8892f"],
+    dot: "#8c6420",
+    rings: [
+      { count: 8, offset: 0,    scale: 1.06, len: 64, t0: .30, t1: .74 },
+      { count: 8, offset: 22.5, scale: .84,  len: 54, t0: .45, t1: .92 }
+    ],
+    coreRing: { r: 13, dots: 12, dotR: 3.2, t0: .78, t1: 1.0 }
+  },
+  sunflower: {
+    petal: ["#ffdf76", "#e5921c"],
+    stroke: "#c47c12",
+    core: ["#7a5220", "#3d2610"],
+    dot: "#241408",
+    rings: [
+      { count: 14, offset: 0,    scale: 1,   len: 30, t0: .18, t1: .72 },
+      { count: 14, offset: 12.85, scale: .78, len: 26, t0: .30, t1: .84 }
+    ],
+    coreRing: { r: 11, dots: 10, dotR: 2.1, t0: .62, t1: .96 }
+  },
+  iris: {
+    petal: ["#cdc2ec", "#6f5fae"],
+    stroke: "#5b4c98",
+    core: ["#f3e39a", "#c9a83c"],
+    dot: "#8a6f1e",
+    petalPath: "M0,0 C-8,-18 -7,-30 0,-34 C7,-30 8,-18 0,0 Z",
+    rings: [
+      { count: 3, offset: 0,  scale: 1,   len: 34, t0: .18, t1: .72 },
+      { count: 3, offset: 60, scale: .92, len: 30, t0: .28, t1: .82 }
+    ],
+    coreRing: { r: 6.5, dots: 8, dotR: 1.7, t0: .60, t1: .95 }
+  },
+  lily: {
+    petal: ["#fffdf7", "#e8dcc2"],
+    stroke: "#cdbd9c",
+    core: ["#f0d79a", "#c99a35"],
+    dot: "#7d5a16",
+    petalPath: "M0,2 C-9,-16 -7,-32 0,-38 C7,-32 9,-16 0,2 Z",
+    rings: [
+      { count: 6, offset: 0, scale: 1,   len: 38, t0: .16, t1: .70 }
+    ],
+    coreRing: { r: 8, dots: 6, dotR: 2.6, t0: .58, t1: .95 },
+    stamens: true
+  }
+};
+
+/* 一片叶子：从原点按 angle 方向长出的柳叶形 */
+function leafPath(angleDeg, len, width) {
+  const a = angleDeg * Math.PI / 180;
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const px = -dy, py = dx;                       // 垂直方向
+  const mx = dx * len * .45, my = dy * len * .45; // 中点
+  const tx = dx * len, ty = dy * len;             // 叶尖
+  return "M0,0 Q" + (mx + px * width).toFixed(1) + "," + (my + py * width).toFixed(1) +
+         " " + tx.toFixed(1) + "," + ty.toFixed(1) +
+         " Q" + (mx - px * width).toFixed(1) + "," + (my - py * width).toFixed(1) +
+         " 0,0 Z";
+}
+
+/**
+ * 在给定 <svg> 里生成一朵花。
+ * 返回 { bloom(animate), setProgress(t) }
+ */
+function buildFlower(svg, presetKey, opts) {
+  opts = opts || {};
+  const P = PRESETS[presetKey];
+  const uid = "fl" + (++FLOWER_UID);
+
+  svg.textContent = "";
+
+  /* --- defs：花瓣渐变 + 茎的渐变 --- */
+  const defs = mk("defs");
+  defs.innerHTML =
+    '<radialGradient id="' + uid + '-p" cx="50%" cy="92%" r="88%">' +
+      '<stop offset="0%" stop-color="' + P.petal[0] + '"/>' +
+      '<stop offset="100%" stop-color="' + P.petal[1] + '"/>' +
+    '</radialGradient>' +
+    '<radialGradient id="' + uid + '-c" cx="42%" cy="35%" r="78%">' +
+      '<stop offset="0%" stop-color="' + P.core[0] + '"/>' +
+      '<stop offset="100%" stop-color="' + P.core[1] + '"/>' +
+    '</radialGradient>' +
+    '<linearGradient id="stemGrad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#f0d288"/>' +
+      '<stop offset="42%" stop-color="#c9a24a"/>' +
+      '<stop offset="74%" stop-color="#8fa063"/>' +
+      '<stop offset="100%" stop-color="#6d7a52" stop-opacity="0"/>' +
+    '</linearGradient>';
+  svg.appendChild(defs);
+
+  const petals = [];
+
+  /* --- 茎与叶（只给主花） --- */
+  let stemPath = null, leafA = null, leafB = null;
+  if (opts.withStem) {
+    const g = mk("g", { id: "stemGroup" });
+    stemPath = mk("path", {
+      id: "stem",
+      d: "M0,14 C-5,52 7,86 -1,124 C-6,148 2,168 0,186",
+      "stroke-width": 3.2
+    });
+    /* 叶子：先按原点画好形状，再用 translate 挂到茎上的位置 */
+    leafA = mk("path", {
+      d: leafPath(196, 46, 15),
+      fill: "#5f7a4c", stroke: "#8fae6c", "stroke-width": 1.1,
+      "stroke-linejoin": "round"
+    });
+    leafB = mk("path", {
+      d: leafPath(-14, 40, 13),
+      fill: "#546e44", stroke: "#7d9662", "stroke-width": 1.1,
+      "stroke-linejoin": "round"
+    });
+    g.appendChild(stemPath); g.appendChild(leafA); g.appendChild(leafB);
+    svg.appendChild(g);
+  }
+
+  /* --- 花瓣环 --- */
+  const ringGroups = [];
+  P.rings.forEach((ring, ri) => {
+    const rg = mk("g");
+    const defaultPath = "M0,-2 C-15,-17 -19,-50 0,-" + ring.len + " C19,-50 15,-17 0,-2 Z";
+    const d = P.petalPath ? P.petalPath
+      : (ring.len === 64 || ring.len === 54
+          ? "M0,-2 C-15,-17 -19,-50 0,-" + ring.len + " C19,-50 15,-17 0,-2 Z"
+          : "M0,-2 C-13,-14 -16,-" + Math.round(ring.len * .78) + " 0,-" + ring.len +
+            " C16,-" + Math.round(ring.len * .78) + " 13,-14 0,-2 Z");
+
+    for (let i = 0; i < ring.count; i++) {
+      const angle = ring.offset + i * 360 / ring.count;
+      const wrap = mk("g");
+      const p = mk("path", {
+        d: d,
+        fill: "url(#" + uid + "-p)",
+        stroke: P.stroke,
+        "stroke-width": 1.1,
+        "stroke-linejoin": "round",
+        "class": "petal"
+      });
+      p.style.transformOrigin = "0 0";
+      wrap.appendChild(p);
+
+      const idx = i / Math.max(1, ring.count - 1);
+      petals.push({
+        el: wrap,
+        angle: angle,
+        scale: ring.scale,
+        t0: ring.t0 + idx * (ring.t1 - ring.t0) * .55,
+        t1: ring.t1,
+        ring: ri
+      });
+      rg.appendChild(wrap);
+    }
+    ringGroups.push(rg);
+    svg.appendChild(rg);
+  });
+
+  /* --- 花心 --- */
+  const coreG = mk("g", { id: "coreGroup" });
+  const cr = P.coreRing;
+  const coreCircle = mk("circle", {
+    r: cr.r, fill: "url(#" + uid + "-c)", stroke: P.dot, "stroke-width": 1
+  });
+  coreG.appendChild(coreCircle);
+
+  for (let i = 0; i < cr.dots; i++) {
+    const a = i * 360 / cr.dots * Math.PI / 180;
+    const d = cr.r * .62;
+    coreG.appendChild(mk("circle", {
+      cx: (Math.cos(a) * d).toFixed(2),
+      cy: (Math.sin(a) * d).toFixed(2),
+      r: cr.dotR, fill: P.dot, opacity: .55
+    }));
+  }
+
+  /* 百合的花蕊 */
+  const stamens = [];
+  if (P.stamens) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i * 60 - 90) * Math.PI / 180;
+      const g = mk("g");
+      const len = 26;
+      g.appendChild(mk("path", {
+        d: "M0,0 Q" + (Math.cos(a) * len * .5).toFixed(1) + "," + (Math.sin(a) * len * .5).toFixed(1) +
+           " " + (Math.cos(a) * len).toFixed(1) + "," + (Math.sin(a) * len).toFixed(1),
+        stroke: "#d9b45c", "stroke-width": 1.3, fill: "none", "stroke-linecap": "round"
+      }));
+      g.appendChild(mk("circle", {
+        cx: (Math.cos(a) * len).toFixed(1), cy: (Math.sin(a) * len).toFixed(1),
+        r: 2.4, fill: "#8a5a18"
+      }));
+      coreG.appendChild(g);
+      stamens.push(g);
+    }
+  }
+  svg.appendChild(coreG);
+
+  /* --- 茎长（用于描边动画） --- */
+  let stemLen = 0;
+  if (stemPath) {
+    try { stemLen = stemPath.getTotalLength(); } catch (e) { stemLen = 200; }
+    stemPath.style.strokeDasharray = stemLen;
+    stemPath.style.strokeDashoffset = stemLen;
+  }
+
+  /* --- 设定某一时刻的形态 --- */
+  function setProgress(t) {
+    petals.forEach(pt => {
+      const local = clamp01((t - pt.t0) / Math.max(.001, pt.t1 - pt.t0));
+      const e = easeOutBack(local);
+      const spread = (1 - easeOutCubic(local)) * (pt.ring === 0 ? -34 : 30);
+      const s = (.06 + .94 * e) * pt.scale;
+      pt.el.setAttribute(
+        "transform",
+        "rotate(" + (pt.angle + spread).toFixed(2) + ") scale(" + s.toFixed(3) + ")"
+      );
+      pt.el.style.opacity = clamp01(local * 3);
+    });
+
+    if (coreG) {
+      const c = clamp01((t - cr.t0) / Math.max(.001, cr.t1 - cr.t0));
+      const s = easeOutBack(c);
+      coreG.setAttribute("transform", "scale(" + (0.02 + 0.98 * s).toFixed(3) + ")");
+      coreG.style.opacity = clamp01(c * 2.6);
+    }
+
+    if (stemPath) {
+      const g = easeOutCubic(clamp01(t / .30));
+      stemPath.style.strokeDashoffset = (stemLen * (1 - g)).toFixed(1);
+
+      const lg = clamp01((t - .08) / .18);
+      leafA.setAttribute("transform",
+        "translate(0,84) scale(" + Math.max(0, easeOutBack(lg)).toFixed(3) + ")");
+      leafA.style.opacity = clamp01(lg * 4);
+
+      const lg2 = clamp01((t - .21) / .18);
+      leafB.setAttribute("transform",
+        "translate(0,128) scale(" + Math.max(0, easeOutBack(lg2)).toFixed(3) + ")");
+      leafB.style.opacity = clamp01(lg2 * 4);
+    }
+  }
+
+  /* --- 播放开花动画 --- */
+  let raf = null;
+  function bloom(duration, onDone) {
+    if (raf) cancelAnimationFrame(raf);
+    duration = duration || 2100;
+    if (reduceMotion) { setProgress(1); onDone && onDone(); return; }
+
+    const start = performance.now();
+    (function step(now) {
+      const t = clamp01((now - start) / duration);
+      setProgress(t);
+      if (t < 1) raf = requestAnimationFrame(step);
+      else { raf = null; onDone && onDone(); }
+    })(start);
+  }
+
+  setProgress(reduceMotion ? 1 : 0);
+  return { svg: svg, bloom: bloom, setProgress: setProgress, preset: P };
+}
+
+
+/* ================================================================
+   2. 背景微尘
+   ================================================================ */
+function seedMotes(container, count) {
+  if (!container || reduceMotion) return;
+  for (let i = 0; i < count; i++) {
+    const m = document.createElement("div");
+    m.className = "mote";
+    m.style.left = (Math.random() * 100).toFixed(1) + "%";
+    m.style.animationDuration = (11 + Math.random() * 12).toFixed(1) + "s";
+    m.style.animationDelay = (-Math.random() * 20).toFixed(1) + "s";
+    m.style.setProperty("--dx", ((Math.random() - .5) * 90).toFixed(0) + "px");
+    m.style.opacity = (0.15 + Math.random() * 0.35).toFixed(2);
+    container.appendChild(m);
+  }
+}
+seedMotes($("#motes1"), 14);
+seedMotes($("#motes2"), 10);
+seedMotes($("#motes3"), 12);
+
+
+/* ================================================================
+   3. 音乐（WebAudio 合成，零文件、无版权）
+   ================================================================ */
+const Music = (function () {
+  let ctx = null, master = null, timer = null, on = false;
+  const SCALE = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50]; // C5 D5 E5 G5 A5 C6
+
+  function init() {
+    if (ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = 0.0001;
+    master.connect(ctx.destination);
+  }
+
+  function note(freq, when, dur, vol) {
+    if (!ctx) return;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(vol, when + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    o.connect(g); g.connect(master);
+    o.start(when); o.stop(when + dur + 0.05);
+
+    // 泛音，让铃声更"亮"
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = "triangle";
+    o2.frequency.value = freq * 2.01;
+    g2.gain.setValueAtTime(0.0001, when);
+    g2.gain.exponentialRampToValueAtTime(vol * 0.22, when + 0.04);
+    g2.gain.exponentialRampToValueAtTime(0.0001, when + dur * 0.6);
+    o2.connect(g2); g2.connect(master);
+    o2.start(when); o2.stop(when + dur);
+  }
+
+  /* 开花时的琶音 */
+  function bloomChord() {
+    init();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume();
+    const now = ctx.currentTime;
+    [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+      note(f, now + i * 0.11, 1.5, 0.075);
+    });
+    const tail = master.gain.value;
+    master.gain.cancelScheduledValues(now);
+    master.gain.setValueAtTime(Math.max(tail, 0.28), now);
+    if (!on) {
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 2.6);
+    }
+  }
+
+  function tick() {
+    if (!ctx || !on) return;
+    const f = SCALE[Math.floor(Math.random() * SCALE.length)];
+    note(f, ctx.currentTime + 0.02, 2.6 + Math.random() * 1.6, 0.045);
+  }
+
+  return {
+    start: function () {
+      init();
+      if (!ctx) return false;
+      if (ctx.state === "suspended") ctx.resume();
+      on = true;
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setTargetAtTime(0.5, ctx.currentTime, 0.9);
+      if (timer) clearInterval(timer);
+      tick();
+      timer = setInterval(tick, 2400);
+      return true;
+    },
+    stop: function () {
+      on = false;
+      if (timer) { clearInterval(timer); timer = null; }
+      if (ctx && master) master.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.5);
+    },
+    chord: bloomChord,
+    isOn: function () { return on; },
+    available: function () { init(); return !!ctx; }
+  };
+})();
+
+
+/* ================================================================
+   4. 填充文案
+   ================================================================ */
+function fillText() {
+  const T = CONFIG.title, S = CONFIG.subtitle;
+  $("#heroTitle").innerHTML =
+    '<span class="en">' + T.en + '</span><span class="zh">' + T.zh + '</span>';
+  $("#heroSub").innerHTML =
+    '<span class="en">' + S.en + '</span><span class="zh">' + S.zh + '</span>';
+
+  /* 信 */
+  const L = $("#letter");
+  L.textContent = "";
+  const sal = document.createElement("p");
+  sal.className = "salutation in";
+  sal.innerHTML = '<span class="en">' + CONFIG.salutation.en + '</span>' +
+                  '<span class="zh">' + CONFIG.salutation.zh + '</span>';
+  L.appendChild(sal);
+
+  const maxLen = Math.max(CONFIG.letter.en.length, CONFIG.letter.zh.length);
+  for (let i = 0; i < maxLen; i++) {
+    const p = document.createElement("p");
+    const en = CONFIG.letter.en[i] || "";
+    const zh = CONFIG.letter.zh[i] || "";
+    p.innerHTML = '<span class="en">' + en + '</span><span class="zh">' + zh + '</span>';
+    if (i === maxLen - 1) p.classList.add("closing");
+    L.appendChild(p);
+  }
+
+  const sign = document.createElement("p");
+  sign.className = "sign";
+  sign.innerHTML = '<span class="en">' + CONFIG.signoff.en + '<br>' + CONFIG.student + '</span>' +
+                   '<span class="zh">' + CONFIG.signoff.zh + '<br>' + CONFIG.student + '</span>';
+  L.appendChild(sign);
+}
+fillText();
+
+
+/* ================================================================
+   5. 主花 & 第一屏
+   ================================================================ */
+const hero = buildFlower($("#hero"), "hero", { withStem: true });
+
+let scene1Done = false;
+function bloomHero(firstTime) {
+  Music.chord();
+  hero.bloom(firstTime ? 2100 : 1650, () => {
+    $("#heroTitle").classList.add("show");
+    $("#heroSub").classList.add("show");
+    $("#tapCue").classList.remove("show");
+  });
+  $("#tapCue").classList.add("show");
+  setTimeout(() => $("#tapCue").classList.remove("show"), firstTime ? 4200 : 1200);
+}
+
+/* 进页面：茎先自己长出来（安静地），提示用户去点 */
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    hero.bloom(1400);
+    setTimeout(() => {
+      $("#tapCue").classList.add("show");
+      scene1Done = true;
+    }, 1500);
+  }, 420);
+  if (CONFIG.musicOnLoad) setTimeout(() => {
+    if (Music.start()) $("#musicBtn").setAttribute("aria-pressed", "true");
+  }, 900);
+});
+
+$("#tapTarget").addEventListener("click", function () { bloomHero(false); });
+$("#tapTarget").addEventListener("keydown", function (e) {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bloomHero(false); }
+});
+
+
+/* ================================================================
+   6. 三朵花 & 第二屏
+   ================================================================ */
+const cardFlowers = $$(".card").map(function (card) {
+  const svg = $("svg", card);
+  const f = buildFlower(svg, card.dataset.flower, {});
+  let done = false;
+  function go() {
+    f.bloom(1500);
+    if (!done) {
+      done = true;
+      Music.chord();
+      if (navigator.vibrate) navigator.vibrate(12);
+    }
+  }
+  card.addEventListener("click", go);
+  card.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
+  });
+  return { card: card, flower: f, go: go };
+});
+
+
+/* ================================================================
+   7. 滚动进场
+   ================================================================ */
+const io = new IntersectionObserver(function (entries) {
+  entries.forEach(function (en) {
+    if (!en.isIntersecting) return;
+    const el = en.target;
+
+    if (el.id === "s2") {
+      cardFlowers.forEach(function (cf, i) {
+        setTimeout(function () {
+          cf.card.classList.add("in");
+          cf.go();
+        }, 130 * i);
+      });
+    }
+
+    if (el.id === "s3") {
+      $$("#letter p").forEach(function (p, i) {
+        setTimeout(function () { p.classList.add("in"); }, 150 * i + 120);
+      });
+    }
+  });
+}, { threshold: 0.32 });
+
+["#s2", "#s3"].forEach(function (s) { io.observe($(s)); });
+
+
+/* ================================================================
+   8. 语音
+   ================================================================ */
+const voiceBtn  = $("#voiceBtn");
+const voiceNote = $("#voiceNote");
+const eqEl      = $("#eq");
+let audioEl = null, speaking = false;
+
+function tts(text) {
+  if (!("speechSynthesis" in window)) {
+    voiceNote.innerHTML = '<span class="en">No voice file yet — add <span class="kbd">assets/voice.mp3</span> next to this page.</span>' +
+                          '<span class="zh">还没有语音文件——把 <span class="kbd">assets/voice.mp3</span> 放在本页旁边即可。</span>';
+    return;
+  }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  u.rate = 0.9;
+  u.pitch = 1.05;
+  const v = (speechSynthesis.getVoices() || []).filter(function (x) {
+    return /^en/i.test(x.lang);
+  })[0];
+  if (v) u.voice = v;
+  u.onstart = function () { speaking = true; setPlayingUI(true); };
+  u.onend = u.onerror = function () { speaking = false; setPlayingUI(false); };
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+function setPlayingUI(on) {
+  voiceBtn.classList.toggle("playing", on);
+  eqEl.classList.toggle("on", on);
+}
+
+function say() {
+  if (speaking) {
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    if (audioEl) audioEl.pause();
+    speaking = false; setPlayingUI(false);
+    return;
+  }
+
+  if (CONFIG.voice.src) {
+    if (!audioEl) audioEl = new Audio(CONFIG.voice.src);
+    audioEl.onplay  = function () { speaking = true; setPlayingUI(true); };
+    audioEl.onended = function () { speaking = false; setPlayingUI(false); };
+    audioEl.onerror = function () {
+      speaking = false; setPlayingUI(false);
+      voiceNote.innerHTML =
+        '<span class="en">Recorded voice not found — using the system voice.</span>' +
+        '<span class="zh">没找到录音文件——先用系统语音代替。</span>';
+      setTimeout(function () { tts(CONFIG.voice.fallbackText); }, 500);
+    };
+    const pr = audioEl.play();
+    if (pr && pr.catch) {
+      pr.catch(function () {
+        voiceNote.innerHTML =
+          '<span class="en">Recorded voice not found — using the system voice.</span>' +
+          '<span class="zh">没找到录音文件——先用系统语音代替。</span>';
+        tts(CONFIG.voice.fallbackText);
+      });
+    }
+    return;
+  }
+  tts(CONFIG.voice.fallbackText);
+}
+
+voiceBtn.addEventListener("click", function () {
+  if (!Music.isOn()) Music.chord();
+  say();
+});
+if ("speechSynthesis" in window) {
+  speechSynthesis.onvoiceschanged = function () {};
+}
+
+
+/* ================================================================
+   9. 语言 / 音乐 / 重播
+   ================================================================ */
+const langBtn = $("#langBtn");
+langBtn.addEventListener("click", function () {
+  const cur = document.documentElement.getAttribute("data-lang");
+  const next = cur === "en" ? "zh" : "en";
+  document.documentElement.setAttribute("data-lang", next);
+  document.documentElement.setAttribute("lang", next);
+  langBtn.setAttribute("aria-pressed", next === "zh" ? "true" : "false");
+  try { localStorage.setItem("ft-lang", next); } catch (e) {}
+});
+try {
+  const saved = localStorage.getItem("ft-lang");
+  if (saved) {
+    document.documentElement.setAttribute("data-lang", saved);
+    langBtn.setAttribute("aria-pressed", saved === "zh" ? "true" : "false");
+  }
+} catch (e) {}
+
+const musicBtn = $("#musicBtn");
+musicBtn.addEventListener("click", function () {
+  if (Music.isOn()) {
+    Music.stop();
+    musicBtn.setAttribute("aria-pressed", "false");
+  } else {
+    if (Music.start()) musicBtn.setAttribute("aria-pressed", "true");
+  }
+});
+
+$("#replayBtn").addEventListener("click", function () {
+  $("#app").scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  setTimeout(function () { bloomHero(false); }, reduceMotion ? 0 : 700);
+});
+
+/* 双击/长按空白处也开花，防止老师找不到按钮 */
+document.addEventListener("dblclick", function () { bloomHero(false); });
+</script>
+</body>
+</html>
